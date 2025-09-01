@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFRS17 PPA | Calculs PPA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc', 400: '#38bdf8',
+                            500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985', 900: '#0c4a6e'
+                        },
+                        dark: { 800: '#1e293b', 900: '#0f172a' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    boxShadow: { 'soft': '0 4px 20px 0 rgba(0, 0, 0, 0.05)', 'card': '0 2px 8px rgba(0, 0, 0, 0.08)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-divider { border-color: rgba(255, 255, 255, 0.1); }
+        .data-card { transition: all 0.3s ease; }
+        .data-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0, 0, 0, 0.5); 
+            z-index: 50; 
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content { 
+            background-color: white; 
+            margin: 15% auto; 
+            padding: 20px; 
+            border-radius: 8px; 
+            width: 90%; 
+            max-width: 500px; 
+            position: relative; 
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .toast { 
+            display: none; 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 100; 
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+        }
+        .sort-asc::after { content: " ↑"; }
+        .sort-desc::after { content: " ↓"; }
+        .pagination-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+        .calculation-success { background-color: #D1FAE5; color: #065F46; }
+        .calculation-warning { background-color: #FEF3C7; color: #92400E; }
+        .calculation-error { background-color: #FEE2E2; color: #B91C1C; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="hidden md:flex md:flex-shrink-0">
+            <div class="flex flex-col w-64 bg-dark-900 text-white">
+                <div class="flex items-center justify-between h-16 px-6 border-b sidebar-divider">
+                    <div class="flex items-center">
+                        <i data-lucide="bar-chart-2" class="w-6 h-6 text-primary-400 mr-2" aria-hidden="true"></i>
+                        <span class="text-xl font-semibold">IFRS17 PAA</span>
+                    </div>
+                </div>
+                <div class="flex flex-col flex-grow px-4 py-6 overflow-y-auto">
+                    <nav class="space-y-1">
+                        <a href="base.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-300 hover:bg-dark-800">
+                            <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3" aria-hidden="true"></i>
+                            Tableau de bord
+                        </a>
+                        <a href="contract.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-300 hover:bg-dark-800">
+                            <i data-lucide="file-text" class="w-5 h-5 mr-3" aria-hidden="true"></i>
+                            Contrats
+                        </a>
+                        <a href="calculs.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg bg-primary-800 text-white" aria-current="page">
+                            <i data-lucide="calculator" class="w-5 h-5 mr-3" aria-hidden="true"></i>
+                            Calculs PAA
+                        </a>
+                        <a href="reporting.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-300 hover:bg-dark-800">
+                            <i data-lucide="pie-chart" class="w-5 h-5 mr-3" aria-hidden="true"></i>
+                            Reporting
+                        </a>
+                        <a href="setting.html" class="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-300 hover:bg-dark-800">
+                            <i data-lucide="settings" class="w-5 h-5 mr-3" aria-hidden="true"></i>
+                            Paramètres
+                        </a>
+                    </nav>
+                    <div class="mt-auto px-4 pt-6">
+                        <div class="bg-dark-800 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <img src="https://picsum.photos/40?random=3" alt="Photo de profil" class="rounded-full w-10 h-10">
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-white">Admin User</p>
+                                    <p class="text-xs text-gray-400">Administrateur</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="bg-white shadow-sm">
+                <div class="flex items-center justify-between px-6 py-4">
+                    <h1 class="text-2xl font-bold text-dark-900">Calculs PPA</h1>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative w-64">
+                            <input type="text" id="searchInput" placeholder="Rechercher..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" aria-label="Rechercher des calculs">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 text-gray-400 w-4 h-4" aria-hidden="true"></i>
+                        </div>
+                        <button class="p-2 text-gray-500 hover:text-gray-700 relative" aria-label="Notifications">
+                            <i data-lucide="bell" class="w-5 h-5" aria-hidden="true"></i>
+                            <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="p-6">
+                <!-- Toast Notification -->
+                <div id="toast" class="toast bg-green-500 text-white p-4 rounded-lg shadow-lg">
+                    Action effectuée avec succès !
+                </div>
+
+                <!-- PPA Calculation Form -->
+                <div class="bg-white rounded-xl shadow-card p-6 mb-8 border border-gray-100">
+                    <h3 class="font-semibold text-gray-800 mb-4">Nouveau Calcul PPA</h3>
+                    <form id="ppaCalculationForm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="contractGroup" class="block text-sm font-medium text-gray-700">Groupe de Contrats</label>
+                                <select id="contractGroup" class="mt-1 p-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-600" required>
+                                    <option value="">Sélectionner un groupe</option>
+                                    <option value="Groupe A">Groupe A</option>
+                                    <option value="Groupe B">Groupe B</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="calculationDate" class="block text-sm font-medium text-gray-700">Date du Calcul</label>
+                                <input type="date" id="calculationDate" class="mt-1 p-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-600" required>
+                            </div>
+                            <div>
+                                <label for="cashFlow" class="block text-sm font-medium text-gray-700">Cash Flow Attendu (€)</label>
+                                <input type="number" id="cashFlow" class="mt-1 p-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-600" required min="0" step="0.01">
+                            </div>
+                            <div>
+                                <label for="discountRate" class="block text-sm font-medium text-gray-700">Taux de Remise (%)</label>
+                                <input type="number" id="discountRate" step="0.01" class="mt-1 p-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-600" required min="0" max="100">
+                            </div>
+                        </div>
+                        <button type="submit" class="mt-4 bg-primary-600 text-white p-2 rounded-md hover:bg-primary-500" aria-label="Effectuer le calcul PPA">Calculer</button>
+                    </form>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-xl shadow-card overflow-hidden border border-gray-100">
+                        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-800">Évolution des Résultats PPA</h3>
+                            <div class="flex items-center space-x-2">
+                                <select id="ppaPeriod" class="text-sm border border-gray-200 rounded-lg px-3 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500" aria-label="Période pour l'évolution des résultats PPA">
+                                    <option value="12">12 mois</option>
+                                    <option value="6">6 mois</option>
+                                    <option value="3">3 mois</option>
+                                </select>
+                                <button class="p-1.5 rounded-lg hover:bg-gray-50" aria-label="Options du graphique">
+                                    <i data-lucide="more-vertical" class="w-4 h-4 text-gray-500" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6 h-80 flex items-center justify-center bg-gray-50 rounded-b-xl">
+                            <canvas id="ppaChart" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-card overflow-hidden border border-gray-100">
+                        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-800">Répartition par Groupe</h3>
+                            <div class="flex items-center space-x-2">
+                                <select id="chartGroupFilter" class="text-sm border border-gray-200 rounded-lg px-3 py-1 focus:ring-2 focus:ring-primary-500 focus:border-primary-500" aria-label="Filtre par groupe">
+                                    <option value="all">Tous les groupes</option>
+                                    <option value="Groupe A">Groupe A</option>
+                                    <option value="Groupe B">Groupe B</option>
+                                </select>
+                                <button class="p-1.5 rounded-lg hover:bg-gray-50" aria-label="Options du graphique">
+                                    <i data-lucide="more-vertical" class="w-4 h-4 text-gray-500" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6 h-80 flex items-center justify-center bg-gray-50 rounded-b-xl">
+                            <canvas id="groupChart" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculation History Table -->
+                <div class="bg-white rounded-xl shadow-card overflow-hidden border border-gray-100 mb-8">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-semibold text-gray-800">Historique des Calculs PPA</h3>
+                        <div class="flex items-center space-x-2">
+                            <button id="exportCSV" class="flex items-center text-sm font-medium text-primary-600 hover:text-primary-800" aria-label="Exporter en CSV">
+                                <i data-lucide="download" class="w-4 h-4 mr-1" aria-hidden="true"></i>
+                                Exporter CSV
+                            </button>
+                            <button id="exportPDF" class="flex items-center text-sm font-medium text-primary-600 hover:text-primary-800" aria-label="Exporter en PDF">
+                                <i data-lucide="file" class="w-4 h-4 mr-1" aria-hidden="true"></i>
+                                Exporter PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200" id="calculationsTable">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="calcId">ID Calcul</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="group">Groupe</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="date">Date</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="cashFlow">Cash Flow (€)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="discount">Taux de Remise (%)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer sort-header" data-sort="result">Résultat PPA (€)</th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="calculationsBody">
+                                <!-- Les données seront chargées dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                        <div class="text-sm text-gray-500" id="paginationInfo">Affichage de <span class="font-medium" id="startItem">0</span> à <span class="font-medium" id="endItem">0</span> sur <span class="font-medium" id="totalItems">0</span> entrées</div>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 border border-gray-200 rounded-lg text-sm text-gray-500 bg-white hover:bg-gray-50 pagination-btn" id="prevPage" disabled aria-label="Page précédente">Précédent</button>
+                            <button class="px-3 py-1 border border-gray-200 rounded-lg text-sm text-gray-500 bg-white hover:bg-gray-50 pagination-btn" id="nextPage" disabled aria-label="Page suivante">Suivant</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for Viewing Calculation Details -->
+    <div id="viewCalculationModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="text-lg font-semibold text-gray-800 mb-4">Détails du Calcul PPA</h3>
+            <div id="calculationDetails" class="space-y-3">
+                <p><strong>ID Calcul:</strong> <span id="detailCalcId"></span></p>
+                <p><strong>Groupe:</strong> <span id="detailGroup"></span></p>
+                <p><strong>Date:</strong> <span id="detailDate"></span></p>
+                <p><strong>Cash Flow (€):</strong> <span id="detailCashFlow"></span></p>
+                <p><strong>Taux de Remise (%):</strong> <span id="detailDiscount"></span></p>
+                <p><strong>Résultat PPA (€):</strong> <span id="detailResult"></span></p>
+                <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <h4 class="font-semibold text-gray-700 mb-2">Détails du calcul:</h4>
+                    <p id="detailFormula" class="text-sm"></p>
+                </div>
+            </div>
+            <button id="closeModal" class="mt-4 text-red-600 hover:text-red-800" aria-label="Fermer le modal">Fermer</button>
+        </div>
+    </div>
+
+    <script>
+        // Données d'exemple pour les calculs PPA
+        let calculationsData = [
+            { id: "PPA001", group: "Groupe A", date: "2025-07-01", cashFlow: 100000, discountRate: 2.5, result: 97561 },
+            { id: "PPA002", group: "Groupe B", date: "2025-07-05", cashFlow: 150000, discountRate: 3.0, result: 145631 },
+            { id: "PPA003", group: "Groupe A", date: "2025-07-10", cashFlow: 80000, discountRate: 2.0, result: 78431 },
+            { id: "PPA004", group: "Groupe B", date: "2025-07-15", cashFlow: 120000, discountRate: 2.8, result: 116732 },
+            { id: "PPA005", group: "Groupe A", date: "2025-07-20", cashFlow: 90000, discountRate: 2.2, result: 88042 },
+            { id: "PPA006", group: "Groupe B", date: "2025-07-25", cashFlow: 200000, discountRate: 3.5, result: 193050 },
+            { id: "PPA007", group: "Groupe A", date: "2025-08-01", cashFlow: 110000, discountRate: 2.3, result: 107492 },
+            { id: "PPA008", group: "Groupe B", date: "2025-08-05", cashFlow: 130000, discountRate: 2.7, result: 126543 },
+            { id: "PPA009", group: "Groupe A", date: "2025-08-10", cashFlow: 95000, discountRate: 2.1, result: 93018 },
+            { id: "PPA010", group: "Groupe B", date: "2025-08-15", cashFlow: 170000, discountRate: 3.2, result: 164592 }
+        ];
+
+        // Variables globales
+        let currentPage = 1;
+        const itemsPerPage = 5;
+        let currentSort = { column: null, direction: 'asc' };
+        let ppaChartInstance = null;
+        let groupChartInstance = null;
+        let filteredCalculations = [];
+
+        // Initialisation lorsque le DOM est chargé
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser les icônes Lucide
+            lucide.createIcons();
+            
+            // Initialiser les graphiques
+            initCharts();
+            
+            // Charger les données des calculs
+            filteredCalculations = [...calculationsData];
+            renderCalculationsTable();
+            
+            // Configurer les écouteurs d'événements
+            setupEventListeners();
+            
+            // Définir la date du jour comme valeur par défaut
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('calculationDate').value = today;
+        });
+
+        // Initialiser les graphiques
+        function initCharts() {
+            // Graphique d'évolution des résultats PPA
+            const ppaCtx = document.getElementById('ppaChart').getContext('2d');
+            const ppaData = {
+                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'],
+                datasets: [{
+                    label: 'Résultats PPA (en milliers €)',
+                    data: [950, 980, 1020, 1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450],
+                    borderColor: '#0ea5e9',
+                    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            };
+
+            ppaChartInstance = new Chart(ppaCtx, {
+                type: 'line',
+                data: ppaData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `€${context.raw.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                drawBorder: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '€' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Graphique de répartition par groupe
+            const groupCtx = document.getElementById('groupChart').getContext('2d');
+            
+            // Calculer les données par groupe
+            const groupData = {
+                'Groupe A': calculationsData.filter(c => c.group === 'Groupe A').reduce((sum, c) => sum + c.result, 0),
+                'Groupe B': calculationsData.filter(c => c.group === 'Groupe B').reduce((sum, c) => sum + c.result, 0)
+            };
+            
+            groupChartInstance = new Chart(groupCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(groupData),
+                    datasets: [{
+                        data: Object.values(groupData),
+                        backgroundColor: ['#0ea5e9', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `€${context.raw.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+            
+            // Mettre à jour le graphique en fonction de la période sélectionnée
+            document.getElementById('ppaPeriod').addEventListener('change', updatePpaChart);
+        }
+
+        // Configurer les écouteurs d'événements
+        function setupEventListeners() {
+            // Soumission du formulaire de calcul PPA
+            document.getElementById('ppaCalculationForm').addEventListener('submit', handleCalculationSubmit);
+            
+            // Fermeture du modal
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            
+            // Boutons d'export
+            document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+            document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+            
+            // Pagination
+            document.getElementById('prevPage').addEventListener('click', goToPrevPage);
+            document.getElementById('nextPage').addEventListener('click', goToNextPage);
+            
+            // Recherche
+            document.getElementById('searchInput').addEventListener('input', handleSearch);
+            
+            // Tri des colonnes
+            document.querySelectorAll('.sort-header').forEach(header => {
+                header.addEventListener('click', () => sortTable(header.dataset.sort));
+            });
+            
+            // Filtre du graphique de groupe
+            document.getElementById('chartGroupFilter').addEventListener('change', updateGroupChart);
+        }
+
+        // Afficher les calculs dans le tableau
+        function renderCalculationsTable() {
+            const tbody = document.getElementById('calculationsBody');
+            tbody.innerHTML = '';
+            
+            const totalItems = filteredCalculations.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
+            
+            // Mettre à jour la pagination
+            updatePagination(totalItems, totalPages);
+            
+            // Calculer les indices de début et de fin
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+            
+            // Mettre à jour l'information de pagination
+            document.getElementById('startItem').textContent = totalItems > 0 ? startIndex + 1 : 0;
+            document.getElementById('endItem').textContent = endIndex;
+            document.getElementById('totalItems').textContent = totalItems;
+            
+            // Remplir le tableau avec les données de la page courante
+            for (let i = startIndex; i < endIndex; i++) {
+                const calculation = filteredCalculations[i];
+                const row = document.createElement('tr');
+                row.className = 'data-card';
+                
+                // Formater la date
+                const calculationDate = new Date(calculation.date).toLocaleDateString('fr-FR');
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${calculation.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${calculation.group}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${calculationDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">€${calculation.cashFlow.toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${calculation.discountRate}%</td>
+                    <td class="px-6 py-4 whitespace-nowrap">€${calculation.result.toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="view-btn text-primary-600 hover:text-primary-800" data-id="${calculation.id}" aria-label="Voir le calcul ${calculation.id}">
+                            <i data-lucide="eye" class="w-4 h-4" aria-hidden="true"></i>
+                        </button>
+                        <button class="delete-btn ml-2 text-red-600 hover:text-red-800" data-id="${calculation.id}" aria-label="Supprimer le calcul ${calculation.id}">
+                            <i data-lucide="trash" class="w-4 h-4" aria-hidden="true"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            }
+            
+            // Réinitialiser les icônes Lucide pour les nouveaux éléments
+            lucide.createIcons();
+            
+            // Ajouter les écouteurs d'événements pour les boutons de visualisation et de suppression
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', () => viewCalculation(btn.dataset.id));
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteCalculation(btn.dataset.id));
+            });
+        }
+
+        // Mettre à jour la pagination
+        function updatePagination(totalItems, totalPages) {
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        // Aller à la page précédente
+        function goToPrevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderCalculationsTable();
+            }
+        }
+
+        // Aller à la page suivante
+        function goToNextPage() {
+            const totalPages = Math.ceil(filteredCalculations.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderCalculationsTable();
+            }
+        }
+
+        // Gérer la soumission du formulaire de calcul
+        function handleCalculationSubmit(e) {
+            e.preventDefault();
+            
+            const group = document.getElementById('contractGroup').value;
+            const date = document.getElementById('calculationDate').value;
+            const cashFlow = parseFloat(document.getElementById('cashFlow').value);
+            const discountRate = parseFloat(document.getElementById('discountRate').value);
+            
+            // Validation des données
+            if (!group || !date || isNaN(cashFlow) || isNaN(discountRate) || cashFlow <= 0 || discountRate <= 0) {
+                showToast('Veuillez remplir tous les champs avec des valeurs valides', 'error');
+                return;
+            }
+            
+            // Effectuer le calcul PPA
+            const result = calculatePPA(cashFlow, discountRate);
+            
+            // Générer un ID unique pour le calcul
+            const calcId = 'PPA' + String(calculationsData.length + 1).padStart(3, '0');
+            
+            // Ajouter le calcul aux données
+            calculationsData.unshift({
+                id: calcId,
+                group: group,
+                date: date,
+                cashFlow: cashFlow,
+                discountRate: discountRate,
+                result: result
+            });
+            
+            // Appliquer les filtres actuels et rafraîchir le tableau
+            applyFilters();
+            
+            // Réinitialiser le formulaire
+            document.getElementById('ppaCalculationForm').reset();
+            
+            // Remettre la date du jour
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('calculationDate').value = today;
+            
+            showToast('Calcul PPA effectué avec succès');
+        }
+
+        // Calculer la valeur PPA
+        function calculatePPA(cashFlow, discountRate) {
+            // Formule simplifiée pour la valeur actuelle
+            // Dans un cas réel, cette formule serait plus complexe
+            const discountFactor = 1 / (1 + (discountRate / 100));
+            const result = cashFlow * discountFactor;
+            
+            return Math.round(result * 100) / 100; // Arrondir à 2 décimales
+        }
+
+        // Voir les détails d'un calcul
+        function viewCalculation(calcId) {
+            const calculation = calculationsData.find(c => c.id === calcId);
+            if (calculation) {
+                // Remplir le modal avec les détails du calcul
+                document.getElementById('detailCalcId').textContent = calculation.id;
+                document.getElementById('detailGroup').textContent = calculation.group;
+                document.getElementById('detailDate').textContent = new Date(calculation.date).toLocaleDateString('fr-FR');
+                document.getElementById('detailCashFlow').textContent = `€${calculation.cashFlow.toLocaleString()}`;
+                document.getElementById('detailDiscount').textContent = `${calculation.discountRate}%`;
+                document.getElementById('detailResult').textContent = `€${calculation.result.toLocaleString()}`;
+                
+                // Afficher la formule de calcul
+                const formula = `Résultat = Cash Flow × (1 / (1 + (Taux de Remise / 100))) = ${calculation.cashFlow} × (1 / (1 + (${calculation.discountRate} / 100))) = ${calculation.result}`;
+                document.getElementById('detailFormula').textContent = formula;
+                
+                // Afficher le modal
+                document.getElementById('viewCalculationModal').style.display = 'flex';
+            }
+        }
+
+        // Supprimer un calcul
+        function deleteCalculation(calcId) {
+            if (confirm('Êtes-vous sûr de vouloir supprimer ce calcul ?')) {
+                calculationsData = calculationsData.filter(calculation => calculation.id !== calcId);
+                applyFilters(); // Réappliquer les filtres pour mettre à jour l'affichage
+                showToast('Calcul supprimé avec succès');
+            }
+        }
+
+        // Fermer le modal
+        function closeModal() {
+            document.getElementById('viewCalculationModal').style.display = 'none';
+        }
+
+        // Exporter en CSV
+        function exportToCSV() {
+            const headers = ['ID Calcul', 'Groupe', 'Date', 'Cash Flow (€)', 'Taux de Remise (%)', 'Résultat PPA (€)'];
+            const csvData = filteredCalculations.map(calculation => [
+                calculation.id,
+                calculation.group,
+                new Date(calculation.date).toLocaleDateString('fr-FR'),
+                calculation.cashFlow,
+                calculation.discountRate,
+                calculation.result
+            ]);
+            
+            const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'calculs_ppa.csv');
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('Export CSV réalisé avec succès');
+        }
+
+        // Exporter en PDF
+        function exportToPDF() {
+            const element = document.getElementById('calculationsTable');
+            const options = {
+                margin: 10,
+                filename: 'calculs_ppa.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            
+            html2pdf().set(options).from(element).save();
+            showToast('Export PDF réalisé avec succès');
+        }
+
+        // Gérer la recherche
+        function handleSearch() {
+            applyFilters();
+        }
+
+        // Appliquer les filtres de recherche
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            filteredCalculations = calculationsData.filter(calculation => {
+                return searchTerm === '' || 
+                    calculation.id.toLowerCase().includes(searchTerm) ||
+                    calculation.group.toLowerCase().includes(searchTerm) ||
+                    calculation.date.toLowerCase().includes(searchTerm);
+            });
+            
+            currentPage = 1;
+            renderCalculationsTable();
+        }
+
+        // Trier le tableau
+        function sortTable(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            // Mettre à jour les indicateurs de tri visuels
+            document.querySelectorAll('.sort-header').forEach(header => {
+                header.classList.remove('sort-asc', 'sort-desc');
+                if (header.dataset.sort === column) {
+                    header.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                }
+            });
+            
+            // Trier les données
+            filteredCalculations.sort((a, b) => {
+                let valueA, valueB;
+                
+                switch (column) {
+                    case 'calcId':
+                        valueA = a.id;
+                        valueB = b.id;
+                        break;
+                    case 'group':
+                        valueA = a.group;
+                        valueB = b.group;
+                        break;
+                    case 'date':
+                        valueA = new Date(a.date);
+                        valueB = new Date(b.date);
+                        break;
+                    case 'cashFlow':
+                        valueA = a.cashFlow;
+                        valueB = b.cashFlow;
+                        break;
+                    case 'discount':
+                        valueA = a.discountRate;
+                        valueB = b.discountRate;
+                        break;
+                    case 'result':
+                        valueA = a.result;
+                        valueB = b.result;
+                        break;
+                    default:
+                        valueA = a.id;
+                        valueB = b.id;
+                }
+                
+                if (valueA < valueB) return currentSort.direction === 'asc' ? -1 : 1;
+                if (valueA > valueB) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            renderCalculationsTable();
+        }
+
+        // Mettre à jour le graphique PPA en fonction de la période
+        function updatePpaChart() {
+            const period = parseInt(document.getElementById('ppaPeriod').value);
+            
+            // Simuler des données différentes selon la période
+            let labels, data;
+            
+            if (period === 12) {
+                labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                data = [950, 980, 1020, 1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450];
+            } else if (period === 6) {
+                labels = ['Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                data = [1200, 1250, 1300, 1350, 1400, 1450];
+            } else {
+                labels = ['Oct', 'Nov', 'Déc'];
+                data = [1350, 1400, 1450];
+            }
+            
+            ppaChartInstance.data.labels = labels;
+            ppaChartInstance.data.datasets[0].data = data;
+            ppaChartInstance.update();
+        }
+
+        // Mettre à jour le graphique de groupe
+        function updateGroupChart() {
+            const groupFilter = document.getElementById('chartGroupFilter').value;
+            
+            let dataToShow;
+            
+            if (groupFilter === 'all') {
+                // Calculer les données pour tous les groupes
+                dataToShow = {
+                    'Groupe A': calculationsData.filter(c => c.group === 'Groupe A').reduce((sum, c) => sum + c.result, 0),
+                    'Groupe B': calculationsData.filter(c => c.group === 'Groupe B').reduce((sum, c) => sum + c.result, 0)
+                };
+            } else {
+                // Filtrer les données pour le groupe sélectionné
+                const filteredData = calculationsData.filter(c => c.group === groupFilter);
+                
+                // Calculer les données par mois pour le groupe sélectionné
+                const monthlyData = {};
+                filteredData.forEach(calculation => {
+                    const month = new Date(calculation.date).toLocaleDateString('fr-FR', { month: 'short' });
+                    if (!monthlyData[month]) {
+                        monthlyData[month] = 0;
+                    }
+                    monthlyData[month] += calculation.result;
+                });
+                
+                dataToShow = monthlyData;
+            }
+            
+            groupChartInstance.data.labels = Object.keys(dataToShow);
+            groupChartInstance.data.datasets[0].data = Object.values(dataToShow);
+            groupChartInstance.update();
+        }
+
+        // Afficher une notification toast
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = type === 'success' ? 'toast bg-green-500 text-white p-4 rounded-lg shadow-lg' : 'toast bg-red-500 text-white p-4 rounded-lg shadow-lg';
+            toast.style.display = 'block';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // Fermer le modal en cliquant à l'extérieur
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('viewCalculationModal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
